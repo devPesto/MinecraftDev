@@ -3,123 +3,85 @@
  *
  * https://minecraftdev.org
  *
- * Copyright (c) 2022 minecraft-dev
+ * Copyright (c) 2023 minecraft-dev
  *
  * MIT License
  */
 
 package com.demonwav.mcdev.platform.architectury.version
 
+import com.demonwav.mcdev.creator.selectProxy
+import com.demonwav.mcdev.update.PluginUtil
 import com.demonwav.mcdev.util.SemanticVersion
+import com.demonwav.mcdev.util.fromJson
+import com.github.kittinunf.fuel.core.FuelManager
+import com.github.kittinunf.fuel.core.requests.suspendable
+import com.github.kittinunf.fuel.coroutines.awaitString
+import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
+import com.intellij.openapi.diagnostic.logger
 import java.io.IOException
-import java.net.URL
-import javax.xml.stream.XMLInputFactory
-import javax.xml.stream.events.XMLEvent
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 class ArchitecturyVersion private constructor(
     val versions: Map<SemanticVersion, List<SemanticVersion>>,
-    private val mcVersions: MutableList<List<SemanticVersion>>
 ) {
 
     fun getArchitecturyVersions(mcVersion: SemanticVersion): List<SemanticVersion> {
-        val roundedVersion = mcVersions.find { mcVersion >= it[0] && mcVersion < it[1] }?.first()
         return try {
-            versions[roundedVersion]?.asSequence()
-                ?.sortedDescending()
-                ?.take(50)
-                ?.toList() ?: throw IOException("Could not find any architectury versions for $mcVersion")
+            val architecturyVersions = versions[mcVersion]
+                ?: throw IOException("Could not find any architectury versions for $mcVersion")
+            architecturyVersions.take(50)
         } catch (e: IOException) {
             e.printStackTrace()
             emptyList()
         }
     }
 
+    data class ModrinthVersionApi(
+        @SerializedName("version_number")
+        val versionNumber: String,
+        @SerializedName("game_versions")
+        val gameVersions: List<String>,
+    )
+
     companion object {
-        private val updateUrl = URL(
-            "https://gist.githubusercontent.com" +
-                "/shedaniel/4a37f350a6e49545347cb798dbfa72b3" +
-                "/raw/architectury.json"
-        )
+        private val LOGGER = logger<ArchitecturyVersion>()
 
-        suspend fun downloadData(): ArchitecturyVersion? = coroutineScope {
+        suspend fun downloadData(): ArchitecturyVersion? {
             try {
-                val meta = withContext(Dispatchers.IO) { Json.parseToJsonElement(updateUrl.readText()) }
-                val versions = mutableMapOf<SemanticVersion, MutableList<SemanticVersion>>()
-                val mcVersions = meta.jsonObject["versions"]?.jsonObject?.map { SemanticVersion.parse(it.key) }
-                    ?.windowed(2, 1)?.toMutableList().also {
-                        it?.add(
-                            listOf(
-                                it.last().last(),
-                                SemanticVersion.parse(
-                                    buildString {
-                                        append("1.")
-                                        append(
-                                            when (val part = it.last().last().parts.getOrNull(1)) {
-                                                is SemanticVersion.Companion.VersionPart.ReleasePart ->
-                                                    (part.version + 1).toString()
-                                                null -> "?"
-                                                else -> part.versionString
-                                            }
-                                        )
-                                    }
-                                )
-                            )
-                        )
-                    } ?: throw IOException("Could not find any minecraft versions")
-                meta.jsonObject["versions"]?.jsonObject?.asSequence()?.map {
-                    async(Dispatchers.IO) {
-                        val mcVersion = SemanticVersion.parse(it.key)
-                        URL(
-                            it.value.jsonObject["api"]?.jsonObject?.get("pom")?.jsonPrimitive?.content
-                                ?: throw IOException(
-                                    "Could not find pom for $mcVersion"
-                                )
-                        )
-                            .openStream().use { stream ->
-                                val inputFactory = XMLInputFactory.newInstance()
+                val url = "https://api.modrinth.com/v2/project/architectury-api/version"
+                val manager = FuelManager()
+                manager.proxy = selectProxy(url)
 
-                                @Suppress("UNCHECKED_CAST")
-                                val reader = inputFactory.createXMLEventReader(stream) as Iterator<XMLEvent>
-                                for (event in reader) {
-                                    if (!event.isStartElement) {
-                                        continue
-                                    }
-                                    val start = event.asStartElement()
-                                    val name = start.name.localPart
-                                    if (name != "version") {
-                                        continue
-                                    }
+                val response = manager.get(url)
+                    .header("User-Agent", PluginUtil.useragent)
+                    .suspendable()
+                    .awaitString()
 
-                                    val versionEvent = reader.next()
-                                    if (!versionEvent.isCharacters) {
-                                        continue
-                                    }
-                                    val version = versionEvent.asCharacters().data
-                                    val regex = it.value.jsonObject["api"]?.jsonObject?.get("filter")
-                                        ?.jsonPrimitive?.content?.toRegex()
-                                        ?: throw IOException("Could not find filter for $mcVersion")
-                                    if (regex.matches(version)) {
-                                        versions.getOrPut(mcVersion) { mutableListOf() }
-                                            .add(SemanticVersion.parse(version))
-                                    }
-                                }
-                            }
+                val data = Gson().fromJson<List<ModrinthVersionApi>>(response)
+
+                val apiVersionMap = HashMap<SemanticVersion, HashSet<SemanticVersion>>()
+
+                for (version in data) {
+                    val apiVersion = SemanticVersion.parse(version.versionNumber.substringBeforeLast('+'))
+
+                    for (gameVersion in version.gameVersions) {
+                        val parsed = SemanticVersion.parse(gameVersion)
+                        val set = apiVersionMap.computeIfAbsent(parsed) { HashSet() }
+                        set += apiVersion
                     }
-                }?.asSequence()?.toList()?.awaitAll()
+                }
 
-                return@coroutineScope ArchitecturyVersion(versions.toSortedMap(), mcVersions)
+                val apiVersionMapList = HashMap<SemanticVersion, List<SemanticVersion>>()
+                for ((mcVersion, archList) in apiVersionMap.entries) {
+                    apiVersionMapList[mcVersion] = archList.sortedDescending()
+                }
+
+                return ArchitecturyVersion(apiVersionMapList)
             } catch (e: IOException) {
-                e.printStackTrace()
-                return@coroutineScope null
+                LOGGER.error("Failed to retrieve Architectury version data", e)
             }
+            return null
         }
     }
 }

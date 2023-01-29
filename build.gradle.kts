@@ -3,7 +3,7 @@
  *
  * https://minecraftdev.org
  *
- * Copyright (c) 2022 minecraft-dev
+ * Copyright (c) 2023 minecraft-dev
  *
  * MIT License
  */
@@ -17,12 +17,12 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jlleitschuh.gradle.ktlint.tasks.BaseKtLintCheckTask
 
 plugins {
-    kotlin("jvm") version "1.7.10"
+    kotlin("jvm") version "1.8.0"
     java
     mcdev
     groovy
     idea
-    id("org.jetbrains.intellij") version "1.8.0"
+    id("org.jetbrains.intellij") version "1.12.0"
     id("org.cadixdev.licenser")
     id("org.jlleitschuh.gradle.ktlint") version "10.3.0"
 }
@@ -42,6 +42,11 @@ version = "$ideaVersionName-$coreVersion"
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(11))
+    }
+}
+kotlin {
+    jvmToolchain {
+        languageVersion.set(java.toolchain.languageVersion.get())
     }
 }
 
@@ -80,6 +85,8 @@ dependencies {
     implementation(libs.mappingIo)
     implementation(libs.bundles.asm)
 
+    implementation(libs.bundles.fuel)
+
     jflex(libs.jflex.lib)
     jflexSkeleton(libs.jflex.skeleton) {
         artifact {
@@ -103,13 +110,14 @@ dependencies {
     testLibs(projects.mixinTestData)
 
     // For non-SNAPSHOT versions (unless Jetbrains fixes this...) find the version with:
-    // afterEvaluate { println(intellij.ideaDependency.buildNumber.substring(intellij.type.length + 1)) }
+    // afterEvaluate { println(intellij.ideaDependency.get().buildNumber.substring(intellij.type.get().length + 1)) }
     gradleToolingExtension(libs.groovy)
     gradleToolingExtension(libs.gradleToolingExtension)
     gradleToolingExtension(libs.annotations)
 
     testImplementation(libs.junit.api)
     testRuntimeOnly(libs.junit.entine)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 val artifactType = Attribute.of("artifactType", String::class.java)
@@ -193,8 +201,9 @@ tasks.withType<JavaCompile>().configureEach {
 tasks.withType<KotlinCompile>().configureEach {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_11.toString()
-        freeCompilerArgs = listOf("-Xuse-k2", "-Xjvm-default=all", "-Xjdk-release=11")
-        kotlinDaemonJvmArguments.add("-Xmx1G")
+        // K2 causes the following error: https://youtrack.jetbrains.com/issue/KT-52786
+        freeCompilerArgs = listOf(/*"-Xuse-k2", */"-Xjvm-default=all", "-Xjdk-release=11")
+        kotlinDaemonJvmArguments.add("-Xmx2G")
     }
 }
 
@@ -202,11 +211,9 @@ tasks.withType<KotlinCompile>().configureEach {
 // This is for maximum compatibility, these classes will be loaded into every Gradle import on all
 // projects (not just Minecraft), so we don't want to break that with an incompatible class version.
 tasks.named(gradleToolingExtensionSourceSet.compileJavaTaskName, JavaCompile::class) {
-    val java7Compiler = javaToolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of(8)) }
+    val java7Compiler = javaToolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of(11)) }
     javaCompiler.set(java7Compiler)
-    options.release.set(null as Int?)
-    sourceCompatibility = "1.5"
-    targetCompatibility = "1.5"
+    options.release.set(6)
     options.bootstrapClasspath = files(java7Compiler.map { it.metadata.installationPath.file("jre/lib/rt.jar") })
     options.compilerArgs = listOf("-Xlint:-options")
 }
@@ -242,25 +249,7 @@ tasks.test {
         }
     }
     systemProperty("NO_FS_ROOTS_ACCESS_CHECK", "true")
-
-    jvmArgs(
-        "--add-opens", "java.base/java.io=ALL-UNNAMED",
-        "--add-opens", "java.base/java.lang.invoke=ALL-UNNAMED",
-        "--add-opens", "java.base/java.lang.ref=ALL-UNNAMED",
-        "--add-opens", "java.base/java.lang.reflect=ALL-UNNAMED",
-        "--add-opens", "java.base/java.lang=ALL-UNNAMED",
-        "--add-opens", "java.base/java.util.concurrent.atomic=ALL-UNNAMED",
-        "--add-opens", "java.base/java.util.concurrent.locks=ALL-UNNAMED",
-        "--add-opens", "java.base/java.util.concurrent=ALL-UNNAMED",
-        "--add-opens", "java.base/sun.nio.fs=ALL-UNNAMED",
-        "--add-opens", "java.desktop/java.awt.event=ALL-UNNAMED",
-        "--add-opens", "java.desktop/java.awt=ALL-UNNAMED",
-        "--add-opens", "java.desktop/javax.swing.plaf.basic=ALL-UNNAMED",
-        "--add-opens", "java.desktop/javax.swing=ALL-UNNAMED",
-        "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
-        "--add-opens", "java.desktop/sun.font=ALL-UNNAMED",
-        "--add-opens", "java.desktop/sun.swing=ALL-UNNAMED",
-    )
+    jvmArgs("--illegal-access=deny")
 }
 
 idea {
@@ -361,9 +350,8 @@ tasks.register("cleanSandbox", Delete::class) {
 }
 
 tasks.runIde {
-    maxHeapSize = "2G"
+    maxHeapSize = "4G"
 
-    jvmArgs("--add-exports=java.base/jdk.internal.vm=ALL-UNNAMED")
     System.getProperty("debug")?.let {
         systemProperty("idea.ProcessCanceledException", "disabled")
         systemProperty("idea.debug.mode", "true")

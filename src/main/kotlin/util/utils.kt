@@ -3,7 +3,7 @@
  *
  * https://minecraftdev.org
  *
- * Copyright (c) 2022 minecraft-dev
+ * Copyright (c) 2023 minecraft-dev
  *
  * MIT License
  */
@@ -18,6 +18,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.progress.ProcessCanceledException
@@ -25,13 +26,19 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.roots.libraries.LibraryKind
+import com.intellij.openapi.roots.libraries.LibraryKindRegistry
 import com.intellij.openapi.util.Computable
 import com.intellij.openapi.util.Condition
 import com.intellij.openapi.util.Ref
 import com.intellij.pom.java.LanguageLevel
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
+import java.lang.invoke.MethodHandles
 import java.util.Locale
+import kotlin.math.min
+import kotlin.reflect.KClass
+import org.jetbrains.concurrency.Promise
+import org.jetbrains.concurrency.runAsync
 
 inline fun <T : Any?> runWriteTask(crossinline func: () -> T): T {
     return invokeAndWait {
@@ -104,6 +111,12 @@ inline fun <T : Any?> PsiFile.applyWriteAction(crossinline func: PsiFile.() -> T
     return result
 }
 
+inline fun <T> runReadActionAsync(crossinline runnable: () -> T): Promise<T> {
+    return runAsync {
+        runReadAction(runnable)
+    }
+}
+
 fun waitForAllSmart() {
     for (project in ProjectManager.getInstance().openProjects) {
         if (!project.isDisposed) {
@@ -128,7 +141,7 @@ inline fun <T : Collection<*>> T.ifEmpty(func: () -> Unit): T {
 }
 
 inline fun <T : Collection<*>?> T.ifNullOrEmpty(func: () -> Unit): T {
-    if (this == null || isEmpty()) {
+    if (isNullOrEmpty()) {
         func()
     }
     return this
@@ -232,6 +245,7 @@ fun Module.findChildren(): Set<Module> {
 // Using the ugly TypeToken approach we can use any complex generic signature, including
 // nested generics
 inline fun <reified T : Any> Gson.fromJson(text: String): T = fromJson(text, object : TypeToken<T>() {}.type)
+fun <T : Any> Gson.fromJson(text: String, type: KClass<T>): T = fromJson(text, type.java)
 
 fun <K> Map<K, *>.containsAllKeys(vararg keys: K) = keys.all { this.containsKey(it) }
 
@@ -257,7 +271,7 @@ fun String.getSimilarity(text: String, bonus: Int = 0): Int {
         return 100_000 + bonus // lowercase exact match
     }
 
-    val distance = Math.min(lowerCaseThis.length, lowerCaseText.length)
+    val distance = min(lowerCaseThis.length, lowerCaseText.length)
     for (i in 0 until distance) {
         if (lowerCaseThis[i] != lowerCaseText[i]) {
             return i + bonus
@@ -320,7 +334,7 @@ inline fun <reified T> Iterable<*>.firstOfType(): T? {
     return this.firstOrNull { it is T } as? T
 }
 
-fun libraryKind(id: String): LibraryKind = LibraryKind.findById(id) ?: LibraryKind.create(id)
+fun libraryKind(id: String): LibraryKind = LibraryKindRegistry.getInstance().findKindById(id) ?: LibraryKind.create(id)
 
 fun String.capitalize(): String =
     replaceFirstChar {
@@ -332,3 +346,8 @@ fun String.capitalize(): String =
     }
 
 fun String.decapitalize(): String = replaceFirstChar { it.lowercase(Locale.ENGLISH) }
+
+// Bit of a hack, but this allows us to get the class object for top level declarations without having to
+// put the whole class name in as a string (easier to refactor, etc.)
+@Suppress("NOTHING_TO_INLINE") // In order for this to work this function must be `inline`
+inline fun loggerForTopLevel() = Logger.getInstance(MethodHandles.lookup().lookupClass())

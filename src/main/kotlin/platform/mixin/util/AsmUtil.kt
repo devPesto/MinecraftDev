@@ -3,7 +3,7 @@
  *
  * https://minecraftdev.org
  *
- * Copyright (c) 2022 minecraft-dev
+ * Copyright (c) 2023 minecraft-dev
  *
  * MIT License
  */
@@ -22,12 +22,12 @@ import com.demonwav.mcdev.util.findQualifiedClass
 import com.demonwav.mcdev.util.fullQualifiedName
 import com.demonwav.mcdev.util.hasSyntheticMethod
 import com.demonwav.mcdev.util.isErasureEquivalentTo
+import com.demonwav.mcdev.util.loggerForTopLevel
 import com.demonwav.mcdev.util.mapToArray
 import com.demonwav.mcdev.util.realName
 import com.demonwav.mcdev.util.toJavaIdentifier
 import com.intellij.codeEditor.JavaEditorFileSwapper
 import com.intellij.ide.highlighter.JavaFileType
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
@@ -61,7 +61,7 @@ import com.intellij.psi.impl.compiled.ClsElementImpl
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiUtil
 import com.intellij.refactoring.util.LambdaRefactoringUtil
-import com.intellij.refactoring.util.RefactoringUtil
+import com.intellij.util.CommonJavaRefactoringUtil
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 import org.objectweb.asm.ClassReader
@@ -79,7 +79,7 @@ import org.objectweb.asm.tree.MethodInsnNode
 import org.objectweb.asm.tree.MethodNode
 import org.objectweb.asm.tree.VarInsnNode
 
-private val LOGGER = Logger.getInstance("AsmUtil")
+private val LOGGER = loggerForTopLevel()
 
 private val MODIFIER_TO_ACCESS_FLAG = mapOf(
     entry(PsiModifier.PUBLIC, Opcodes.ACC_PUBLIC),
@@ -812,11 +812,11 @@ fun MethodNode.findOrConstructSourceMethod(
     when (sourceElement) {
         is PsiLambdaExpression -> {
             val copy = sourceElement.copy() as PsiLambdaExpression
-            psiMethod.body?.replace(RefactoringUtil.expandExpressionLambdaToCodeBlock(copy))
+            psiMethod.body?.replace(CommonJavaRefactoringUtil.expandExpressionLambdaToCodeBlock(copy))
         }
         is PsiMethodReferenceExpression -> {
             LambdaRefactoringUtil.createLambda(sourceElement, true)?.let {
-                psiMethod.body?.replace(RefactoringUtil.expandExpressionLambdaToCodeBlock(it))
+                psiMethod.body?.replace(CommonJavaRefactoringUtil.expandExpressionLambdaToCodeBlock(it))
             }
         }
     }
