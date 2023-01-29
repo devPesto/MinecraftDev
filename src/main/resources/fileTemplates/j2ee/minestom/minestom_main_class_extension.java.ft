@@ -1,0 +1,16 @@
+package ${PACKAGE};
+
+import net.minestom.server.extensions.Extension;
+
+public class ${CLASS_NAME} extends Extension {
+
+    @Override
+    public void initialize() {
+        // Extension startup logic
+    }
+
+    @Override
+    public void terminate() {
+        // Extension shutdown logic
+    }
+}

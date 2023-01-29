@@ -32,6 +32,7 @@ import com.demonwav.mcdev.platform.liteloader.LiteLoaderModuleType
 import com.demonwav.mcdev.platform.liteloader.framework.LITELOADER_LIBRARY_KIND
 import com.demonwav.mcdev.platform.mcp.McpModuleType
 import com.demonwav.mcdev.platform.mcp.framework.MCP_LIBRARY_KIND
+import com.demonwav.mcdev.platform.minestom.MinestomModuleType
 import com.demonwav.mcdev.platform.mixin.MixinModuleType
 import com.demonwav.mcdev.platform.mixin.framework.MIXIN_LIBRARY_KIND
 import com.demonwav.mcdev.platform.sponge.SpongeModuleType
@@ -60,7 +61,8 @@ enum class PlatformType(
     LITELOADER(LiteLoaderModuleType, "LiteLoader"),
     MIXIN(MixinModuleType, "Mixin"),
     MCP(McpModuleType, "MCP"),
-    ADVENTURE(AdventureModuleType, "Adventure");
+    ADVENTURE(AdventureModuleType, "Adventure"),
+    MINESTOM(MinestomModuleType, "Minestom");
 
     private val children = mutableListOf<PlatformType>()
 

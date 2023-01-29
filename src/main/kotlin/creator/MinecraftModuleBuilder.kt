@@ -18,6 +18,7 @@ import com.demonwav.mcdev.platform.bungeecord.creator.BungeeCordProjectSettingsW
 import com.demonwav.mcdev.platform.fabric.creator.FabricProjectSettingsWizard
 import com.demonwav.mcdev.platform.forge.creator.ForgeProjectSettingsWizard
 import com.demonwav.mcdev.platform.liteloader.creator.LiteLoaderProjectSettingsWizard
+import com.demonwav.mcdev.platform.minestom.creator.MinestomProjectSettingsWizard
 import com.demonwav.mcdev.platform.sponge.creator.SpongeProjectSettingsWizard
 import com.demonwav.mcdev.platform.velocity.creator.VelocityProjectSettingsWizard
 import com.intellij.ide.util.projectWizard.JavaModuleBuilder
@@ -114,7 +115,8 @@ class MinecraftModuleBuilder : JavaModuleBuilder() {
             ArchitecturyProjectSettingsWizard(creator),
             LiteLoaderProjectSettingsWizard(creator),
             VelocityProjectSettingsWizard(creator),
-            BungeeCordProjectSettingsWizard(creator)
+            BungeeCordProjectSettingsWizard(creator),
+            MinestomProjectSettingsWizard(creator)
         )
         if (Registry.`is`("mcdev.wizard.finalizer")) {
             return baseSteps + ProjectSetupFinalizerWizardStep(creator, wizardContext)

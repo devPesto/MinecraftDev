@@ -126,6 +126,11 @@ class MinecraftTemplates : FileTemplateGroupDescriptorFactory {
             liteGroup.addTemplate(FileTemplateDescriptor(LITELOADER_SETTINGS_GRADLE_TEMPLATE))
         }
 
+        FileTemplateGroupDescriptor("Minestom", PlatformAssets.MINESTOM_ICON).let { minestom ->
+                group.addTemplate(minestom)
+                minestom.addTemplate(FileTemplateDescriptor())
+        }
+
         FileTemplateGroupDescriptor("Multi-Module", PlatformAssets.MINECRAFT_ICON).let { multiGroup ->
             group.addTemplate(multiGroup)
             multiGroup.addTemplate(FileTemplateDescriptor(MULTI_MODULE_BUILD_GRADLE_TEMPLATE))
@@ -305,6 +310,10 @@ class MinecraftTemplates : FileTemplateGroupDescriptorFactory {
         const val FABRIC_BLOCK_TEMPLATE = "FabricBlock.java"
         const val FABRIC_ITEM_TEMPLATE = "FabricItem.java"
         const val FABRIC_ENCHANTMENT_TEMPLATE = "FabricEnchantment.java"
+
+        const val MINESTOM_BUILD_GRADLE_TEMPLATE = "minestom_build.gradle"
+        const val MINESTOM_MAIN_CLASS_SERVER_TEMPLATE = "minestom_main_class_server.java"
+        const val MINESTOM_MAIN_CLASS_EXTENSION_TEMPLATE = "minestom_main_class_extension.java"
     }
 
     private fun template(fileName: String, displayName: String? = null) = CustomDescriptor(fileName, displayName)

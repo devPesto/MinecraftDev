@@ -1,0 +1,26 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
+}
+
+group = '${GROUP_ID}'
+version '${PLUGIN_VERSION}'
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'jitpack'
+        url = 'https://jitpack.io'
+    }
+}
+
+dependencies {
+    implementation 'com.github.Minestom:Minestom:${LATEST_MINESTOM_COMMIT}'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'fr.themode.minestom.',
+            'Multi-Release': true
+    }
+}

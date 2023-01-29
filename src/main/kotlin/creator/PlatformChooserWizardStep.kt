@@ -18,6 +18,7 @@ import com.demonwav.mcdev.platform.bungeecord.creator.BungeeCordProjectConfig
 import com.demonwav.mcdev.platform.fabric.creator.FabricProjectConfig
 import com.demonwav.mcdev.platform.forge.creator.ForgeProjectConfig
 import com.demonwav.mcdev.platform.liteloader.creator.LiteLoaderProjectConfig
+import com.demonwav.mcdev.platform.minestom.creator.MinestomProjectConfig
 import com.demonwav.mcdev.platform.sponge.creator.SpongeProjectConfig
 import com.demonwav.mcdev.platform.velocity.creator.VelocityProjectConfig
 import com.intellij.ide.util.projectWizard.ModuleWizardStep
@@ -45,6 +46,7 @@ class PlatformChooserWizardStep(private val creator: MinecraftProjectCreator) : 
     private lateinit var waterfallPluginButton: JBRadioButton
     private lateinit var velocityPluginButton: JBRadioButton
     private lateinit var liteLoaderModButton: JBRadioButton
+    private lateinit var minestomServerButton: JBRadioButton
 
     override fun getComponent(): JComponent {
         if (UIUtil.isUnderDarcula()) {
@@ -84,6 +86,7 @@ class PlatformChooserWizardStep(private val creator: MinecraftProjectCreator) : 
             bungeeCordPluginButton.isSelected -> BungeeCordProjectConfig(PlatformType.BUNGEECORD)
             waterfallPluginButton.isSelected -> BungeeCordProjectConfig(PlatformType.WATERFALL)
             velocityPluginButton.isSelected -> VelocityProjectConfig()
+            minestomServerButton.isSelected -> MinestomProjectConfig()
             else -> null
         }
     }
